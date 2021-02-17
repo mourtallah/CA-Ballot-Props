@@ -1,0 +1,32 @@
+{
+    "id": "34477BF0",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1613593771810.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "expression": "odd_obs",
+        "caption": "odd_obs",
+        "totalObservations": 36,
+        "displayedObservations": 36,
+        "variables": 18,
+        "cacheKey": "5F4B33D4",
+        "object": "odd_obs",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=odd_obs&cache_key=5F4B33D4&max_cols=50",
+        "preview": 0
+    },
+    "folds": "",
+    "lastKnownWriteTime": 0,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1613593771810,
+    "read_only": false,
+    "read_only_alternatives": []
+}
