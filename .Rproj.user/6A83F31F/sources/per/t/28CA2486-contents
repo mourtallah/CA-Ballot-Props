@@ -155,13 +155,15 @@ no_on_67 = prop67 %>% subset(stance=="OPPOSE")
 no_on_67 %>%
   summarize(n()) # all 27 voted in support of over-turning the ban
 
-no_on_67 %>%
+X3 %>% group_by(number) %>% mutate("N"=n()) %>% ggplot(aes(N, prop)) + geom_col() + scale_x_discrete(name="Proposition",breaks=c("63 - Gun Control","67 - Plastic Bag Referendum")) + ggtitle(label ="Undisclosed Firearms donation amounts", subtitle = "Frequency of Missing Data grouped by Proposition") + theme_minimal()
+
   group_by(founder) %>%
   summarize(n()) # all 27 that opposed were non founders
 
 no_on_67 %>%
   summarize("total"=sum(size,na.rm=T),"N"=n()) %>%
   mutate(total/N) 
+
 # contributions to oppose overturning the ban
 # were on average over three hundred times higher.
 
@@ -170,3 +172,18 @@ prop63 = X2[X2$number==63,]
 prop63 %>% group_by(founder) %>%
   summarize("mean_size"=mean(size, na.rm=T),
             'sum_size'=sum(size, na.rm=T))
+
+## Missing Amounts Plot
+X3 %>% group_by(number) %>%
+  mutate("N"=n()) %>%
+  ggplot(aes(prop, N)) +
+  geom_col() +
+  scale_x_discrete(
+    name="Proposition",
+    labels=c("63 - Gun Control",
+             "67 - Plastic Bag Referendum")) +
+  labs(
+    title="Undisclosed Firearms donation amounts",
+    subtitle = "Frequency of Missing Data grouped by Proposition") +
+  theme_minimal()
+
