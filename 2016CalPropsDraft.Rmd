@@ -1,0 +1,114 @@
+---
+title: "Money in Politics"
+subtitle: "An Analysis of 2016 California Ballot Propositions Contributions"
+author: "Serigne Mourtallah M'backe Faye"
+date: "Feb 24, 2020"
+output:
+  tufte::tufte_html: default
+---
+```{r Libraries, include=FALSE}
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(tufte)
+```
+# Introduction
+
+In California, ballot propositions are initiatives or referendums posed to it's electorate during presidential elections to which they may vote "Yes" or "No" in a direct i.e. majority rules vote and if passed becomes state law. It is by this process that Proposition 9 of 1974, as known as the Political Reform Act, was passed requiring every dollar raised and spent on a political campaign be disclosed and that the committees associated with the propositions register with the secretary of state and disclose on their contributors including their names, occupations and places of residence. 
+
+While every state has a database to manage these records California's CAL-ACCESS is notorious for being engineered especially poorly, earning the ire of journalists, academics and transparency advocates with Secretary of State Alex Padilla calling emphatically for it's "complete overhaul" in 2015[^1].
+
+Fortunately by that time, a group of journalists and developers had already been working on this problem for over a year, forming the California Civic Data Coalition to address this very problem. Although the project is still in development, their mission is to make the dirty, jumbled CAL-ACCESS databases accessible for even novices to analyze and understand has been well received, as experimental versions of data mined and cleaned by CCDC has powered several investigations into money in politics (including this one!). One of its co-founders and one of its former lead developers in collaboration with Ben Welsh of The Los Angeles Times and Andrea Suozzo of Seven Days newspaper authored a introduction to Jupyter course that uses provides data on the committees and contributions for the 2016 election and inspired this paper.
+
+In November 2016 Californians voted on 17 different propositions, including the most in over a decade. This paper is an exploratory analysis of the political contributions donated in support or in opposition of these propositions and includes investigation of anomalous, paradoxial observations, a two sample t-test comparing the means of the sums of contributions donated to propositions that passed to those that failed, and lastly a exploration of efficacy of modeling the probability of a proposition being passed with the amount of money contributed to that proposition.
+
+[^1]: In November 2016 Californians voted on 17 different propositions, including the most in over a decade
+
+## Intro
+## H3 heading
+
+
+
+```{r include=FALSE}
+contributions <- read_csv("contributions.csv",
+                          col_types = cols(
+                            contributor_lastname = col_skip(),
+                            contributor_firstname = col_skip()), 
+                          na = "0")
+
+committees <- read_csv("committees.csv", 
+                       col_types = cols(), 
+                       na = "0")
+```
+
+```{r include=FALSE}
+## X : full dataset
+X = merge(committees,
+          contributions,
+          by="calaccess_committee_id")
+
+## X2 : modeling subset
+X2=tibble("amount"=X$amount,
+          "zip"=X$contributor_zip,
+          "prop"=X$prop_name,
+          "number"=X$ccdc_prop_id-19,
+          "founder"=X$contributor_is_self_employed,
+          "job"=X$contributor_occupation,
+          "stance"=X$committee_position,
+          "size"=abs(amount))
+
+## X3 : Missing Data Subset
+X3 = X2[is.na(X2$amount),]
+
+## X4 : Logistic Modeling & T-test View 
+outcomes <- data.frame(
+  prop=c(seq(51,67)),
+  outcomes=c(1,1,0,1,1,1,1,1,1,0,0,0,1,1,0,1,1)
+  )
+
+X4 = cbind(outcomes,
+           X2 %>%
+             filter(!is.na(size)) %>%
+             group_by(number) %>%
+             summarize("sum"=sum(size)))
+```
+
+```{r echo=FALSE, message=TRUE}
+odd_obs <- X[X$amount < 0 & X$committee_position=="SUPPORT",]
+odd_obs %>%
+  group_by("G"=odd_obs$prop_name) %>%
+  summarize("N"=n()) %>%
+  filter(!is.na(G)) %>%
+  ggplot(aes(G,N)) +
+  geom_col(col="black", fill="burlywood2") +
+  theme_light() +
+  xlab(label="Propositions") +
+  ylab(label="") +
+  coord_flip() +
+  ggtitle(label = "A Glitch in the System",
+          subtitle = "Frequency of Negative Supporting Contributions by Proposition") +
+  scale_x_discrete(labels=c("Prop 51",
+                            "Prop 59",
+                            "Prop 61",
+                            "Prop 62",
+                            "Prop 63",
+                            'Prop 64',
+                            "Prop 66"))
+```
+
+
+```{r echo=FALSE}
+X3 %>% 
+  group_by(number) %>%
+  summarize("N"=n()) %>%
+  ggplot(aes(number, N)) +
+  geom_col(fill="burlywood2", col="black") +
+  scale_x_discrete(
+    name="Proposition",
+    labels=c("Prop 63 - Gun Control",
+             "Prop 67 - Plastic Bag Referendum")) +
+  labs(
+    title="Undisclosed Firearms donation amounts",
+    subtitle = "Frequency of Missing Data grouped by Proposition") +
+  theme_light()
+```

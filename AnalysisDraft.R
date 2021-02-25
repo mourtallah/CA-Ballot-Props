@@ -1,3 +1,4 @@
+###
 
 
 ### dependencies
@@ -10,6 +11,7 @@ library(dplyr)
 ### data processing
 ############################################################################
 
+# loading in data
 contributions <- read_csv("contributions.csv",
                           col_types = cols(
                             contributor_lastname = col_skip(),
@@ -20,16 +22,18 @@ committees <- read_csv("committees.csv",
                        col_types = cols(), 
                        na = "0")
 
-### Views
-##############################################################################
+outcomes <- data.frame(
+  prop=c(seq(51,67)),
+  outcomes=c(1,1,0,1,1,1,1,1,1,0,0,0,1,1,0,1,1)
+  )
 
 ## X : full dataset
 
 X = merge(committees, contributions, by = "calaccess_committee_id")
 
-## X2 : modelling subset
+## X2 : modeling subset
 
-X2 = data_frame("amount"=X$amount,
+X2=data_frame("amount"=X$amount,
                 "zip"=X$contributor_zip,
                 "prop"=X$prop_name,
                 "number"=X$ccdc_prop_id-19,
@@ -38,7 +42,17 @@ X2 = data_frame("amount"=X$amount,
                 "stance"=X$committee_position,
                 "size"=abs(amount))
 
-odd_obs <- X[X$amount < 0 & X$committee_position=="SUPPORT",]
+X2=merge(x=X2,
+         y=outcomes,
+         by.x = 'number',
+         by.y = 'prop')
+
+## Missing Data Subset
+X3 = X2[is.na(X2$amount),]
+
+## Log Modeling View 
+X4 = cbind(outcomes, X2 %>% filter(!is.na(size)) %>% group_by(number) %>% summarize("sum"=sum(size)))
+           
 
 ## Paradox : How can the amount be negative 
 ## while the committee supports the prop the contribution was made under?
@@ -48,23 +62,30 @@ odd_obs <- X[X$amount < 0 & X$committee_position=="SUPPORT",]
 
 # odd_obs per job
 odd_obs %>%
-  group_by(odd_obs$prop_name) %>%
-  summarize(n()) 
+  group_by("G"=odd_obs$prop_name) %>%
+  summarize("N"=n()) %>%
+  filter(!is.na(G)) %>%
+  ggplot(aes(G,N)) +
+  geom_col(col="black", fill="lightblue") +
+  theme_light() +
+  xlab(label="Propositions") +
+  ylab(label="") +
+  coord_flip() +
+  ggtitle(label = "A Glitch in the System",
+          subtitle = "Frequency of Negative Supporting Contributions by Proposition") +
+  scale_x_discrete(labels=c("Prop 51",
+                            "Prop 59",
+                            "Prop 61",
+                            "Prop 62",
+                            "Prop 63",
+                            'Prop 64',
+                            "Prop 66"))
+
 ## prop 63 over-represented for with this issue.
 
 ## Missing Data
-
-###############################################################################
-colMeans(is.na(X2)) %>% round(5) * 100
-indexsizena = which(is.na(X2$amount))
-
-# X3 : amount censored.
-X3 = X2[indexsizena,]
-
-X3 %>% 
-  group_by(job) %>%
-  summarise(n())
-# 16 obs, 10 of which are retired
+colSums(is.na(X))
+## all the data is here with the exception of amounts in 16 records
 
 X3 %>% 
   group_by(number) %>%
@@ -72,9 +93,27 @@ X3 %>%
 # 16 obs, 14 of which are for prop 63. 
 #These are firearms amounts, why are so many of these missing?
 
+## Missing Amounts Plot
+X3 %>% 
+  group_by(number) %>%
+  summarize("N"=n()) %>%
+  ggplot(aes(number, N)) +
+  geom_col(fill="lightblue", col="black") +
+  scale_x_discrete(
+    name="Proposition",
+    labels=c("Prop 63 - Gun Control",
+             "Prop 67 - Plastic Bag Referendum")) +
+  labs(
+    title="Undisclosed Firearms donation amounts",
+    subtitle = "Frequency of Missing Data grouped by Proposition") +
+  theme_light()
 
-### AVERAGES
+# Prop 63 also overrepresented with in missing data
+
+### AGGREGATES & AVERAGES
 ##############################################################################
+
+sum(abs(X$amount), na.rm = T)
 
 # There are 17 unique propositions
 unique_props <- sort(unique(committees$prop_name))
@@ -106,6 +145,7 @@ avg.dollar.per.contr=avg.amount.per.prop/avg.contr.per.prop
 ###################################################################################################
 
 prop67 = X2[X2$number==67,]
+
 prop67 %>%
   group_by(founder) %>%
   summarize("mean_size"=mean(size, na.rm=T),
@@ -155,11 +195,6 @@ no_on_67 = prop67 %>% subset(stance=="OPPOSE")
 no_on_67 %>%
   summarize(n()) # all 27 voted in support of over-turning the ban
 
-X3 %>% group_by(number) %>% mutate("N"=n()) %>% ggplot(aes(N, prop)) + geom_col() + scale_x_discrete(name="Proposition",breaks=c("63 - Gun Control","67 - Plastic Bag Referendum")) + ggtitle(label ="Undisclosed Firearms donation amounts", subtitle = "Frequency of Missing Data grouped by Proposition") + theme_minimal()
-
-  group_by(founder) %>%
-  summarize(n()) # all 27 that opposed were non founders
-
 no_on_67 %>%
   summarize("total"=sum(size,na.rm=T),"N"=n()) %>%
   mutate(total/N) 
@@ -173,17 +208,9 @@ prop63 %>% group_by(founder) %>%
   summarize("mean_size"=mean(size, na.rm=T),
             'sum_size'=sum(size, na.rm=T))
 
-## Missing Amounts Plot
-X3 %>% group_by(number) %>%
-  mutate("N"=n()) %>%
-  ggplot(aes(prop, N)) +
-  geom_col() +
-  scale_x_discrete(
-    name="Proposition",
-    labels=c("63 - Gun Control",
-             "67 - Plastic Bag Referendum")) +
-  labs(
-    title="Undisclosed Firearms donation amounts",
-    subtitle = "Frequency of Missing Data grouped by Proposition") +
-  theme_minimal()
+### Statistical Analysis
 
+### Logistic Regression
+glm(X4$outcomes ~ X4$sum,family = 'binomial') %>% summary()
+ggplot(X4, aes(y=sum)) + geom_boxplot() + facet_wrap(~outcomes)
+t.test(X4$sum ~ X4$outcomes,alternative="g")
