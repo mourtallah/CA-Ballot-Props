@@ -1,34 +1,22 @@
 ---
-title: "Money in Politics"
-subtitle: "An Analysis of 2016 California Ballot Propositions Contributions"
+title: 'Money in Politics : An Analysis of 2016 California Ballot Propositions Contributions'
 author: "Serigne Mourtallah M'backe Faye"
-date: "Feb 24, 2020"
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
-  tufte::tufte_html: default
+  #tufte::tufte_html: default
+  tufte::tufte_handout: default
+abstract: |
+  _In November 2016 Californians voted on 17 different propositions, including the most in over a decade. This paper is an exploratory analysis of the political contributions donated in support or in opposition of these propositions, including investigations of anomalous, paradoxical observations, a two sample t-test comparing the means of the sums of contributions donated to propositions that passed to those that failed, and lastly, a exploration of efficacy of modeling the probability of a proposition being passed with the amount of money contributed to that propositions using a logistic regression model._
+documentclass: scrartcl
 ---
+
 ```{r Libraries, include=FALSE}
 library(ggplot2)
+library(forcats)
 library(readr)
 library(dplyr)
 library(tufte)
 ```
-# Introduction
-
-In California, ballot propositions are initiatives or referendums posed to it's electorate during presidential elections to which they may vote "Yes" or "No" in a direct i.e. majority rules vote and if passed becomes state law. It is by this process that Proposition 9 of 1974, as known as the Political Reform Act, was passed requiring every dollar raised and spent on a political campaign be disclosed and that the committees associated with the propositions register with the secretary of state and disclose on their contributors including their names, occupations and places of residence. 
-
-While every state has a database to manage these records California's CAL-ACCESS is notorious for being engineered especially poorly, earning the ire of journalists, academics and transparency advocates with Secretary of State Alex Padilla calling emphatically for it's "complete overhaul" in 2015[^1].
-
-Fortunately by that time, a group of journalists and developers had already been working on this problem for over a year, forming the California Civic Data Coalition to address this very problem. Although the project is still in development, their mission is to make the dirty, jumbled CAL-ACCESS databases accessible for even novices to analyze and understand has been well received, as experimental versions of data mined and cleaned by CCDC has powered several investigations into money in politics (including this one!). One of its co-founders and one of its former lead developers in collaboration with Ben Welsh of The Los Angeles Times and Andrea Suozzo of Seven Days newspaper authored a introduction to Jupyter course that uses provides data on the committees and contributions for the 2016 election and inspired this paper.
-
-In November 2016 Californians voted on 17 different propositions, including the most in over a decade. This paper is an exploratory analysis of the political contributions donated in support or in opposition of these propositions and includes investigation of anomalous, paradoxial observations, a two sample t-test comparing the means of the sums of contributions donated to propositions that passed to those that failed, and lastly a exploration of efficacy of modeling the probability of a proposition being passed with the amount of money contributed to that proposition.
-
-[^1]: In November 2016 Californians voted on 17 different propositions, including the most in over a decade
-
-## Intro
-## H3 heading
-
-
-
 ```{r include=FALSE}
 contributions <- read_csv("contributions.csv",
                           col_types = cols(
@@ -40,7 +28,6 @@ committees <- read_csv("committees.csv",
                        col_types = cols(), 
                        na = "0")
 ```
-
 ```{r include=FALSE}
 ## X : full dataset
 X = merge(committees,
@@ -61,32 +48,76 @@ X2=tibble("amount"=X$amount,
 X3 = X2[is.na(X2$amount),]
 
 ## X4 : Logistic Modeling & T-test View 
+c("51"=1, "52"=(12756517.3/(12756517.3+3526622.3)), "53"=(3500000.0/(3500000.0+18840500.0)), "54"=1, "55"=1, "56"=(33683287.7/(33683287.7+54686004.0)), "57"=(19307322.7/(19307322.7+791047.0)), "58"=1, "59"=1, "60"=(4655000.0/(4655000.0	+ 379221.0)), "61"=(18897535.2/(18897535.2	+ 108417232.0)), "62"=(16001308.4/(16001308.4	+ 16840069.8)), "63"=(2850469.1)/(2850469.1+701727.6), "64"= (32978406.0/(32978406.0 + 2501211.6)), "65"=1, "66"=(16840069.8/(16840069.8+17455869.5)), "67"=(1789160.8/(1789160.8+2681413.2))) -> prop.dollars.support
+
+c("51"=1, "52"=12/(12+3), "53" = 7/(165+7), "54" = 1, "55"=1, "56"=119/(119+46), "57"=91/(91+146), "58"=1, "59" = 1, "60" = 21/(21+94), "61" = 695/(695+111), "62"=4809/(4809	+ 29633	),"63"=(5457/(5457+5554)), "64"=762/(762+98), "65"=1, "66"=29633/(29633+4195), "67"=6250/(6250+27)) -> prop.contribs.support
+
 outcomes <- data.frame(
   prop=c(seq(51,67)),
   outcomes=c(1,1,0,1,1,1,1,1,1,0,0,0,1,1,0,1,1)
   )
 
-X4 = cbind(outcomes,
+X2 %>% filter(!is.na(size)) %>% group_by(number) %>% summarize("sum"=sum(size)) -> M
+
+X4 = cbind(outcomes, prop.dollars.support, prop.contribs.support,
            X2 %>%
              filter(!is.na(size)) %>%
-             group_by(number) %>%
-             summarize("sum"=sum(size)))
+             group_by(number) %>% 
+             summarize("sum"=sum(size), N=n()))
+
+X5 = X2[!is.na(X2$amount),]
+
+X6 <- cbind(outcomes, prop.contribs.support, prop.dollars.support)
+
+X7 <- merge(X6, X5, by.x = "prop", by.y = "number")
+X7 %>% group_by(prop) %>% summarize(mean=mean(size)) -> tmp
+X8 <- cbind(X4, tmp$mean) 
+```
+# Overview
+
+In California, ballot propositions are initiatives or referendums posed to it's electorate during presidential elections to which they may vote "Yes" or "No" in a direct^[i.e. majority rules.] vote. If passed, these propositions becomes state law. It is by this process that Proposition 9 of 1974, as known as the [Political Reform Act](https://www.fppc.ca.gov/about-fppc/about-the-political-reform-act.html), was passed requiring every dollar raised and spent on a political campaign be disclosed and that the committees associated with the propositions register with the secretary of state and disclose on their contributors including their names, occupations and places of residence. 
+
+While every state has a database to manage these records California's [CAL-ACCESS](https://cal-access.sos.ca.gov) is notorious for being engineered especially poorly, earning the ire of journalists, academics and transparency advocates with Secretary of State Alex Padilla calling emphatically for it's "complete overhaul"^[White, Jeremy. "Secretary of state hits California’s ‘Frankenstein monster’ campaign finance database." _Sacremento Bee_ 15 October 2015.] in 2015.
+
+Fortunately by that time, a group of journalists and developers had already been working on this problem for over a year, forming the [California Civic Data Coalition](https://www.californiacivicdata.org) to address this very problem. Although the project is still in development, their mission is to make the dirty, jumbled CAL-ACCESS databases accessible so that novices can analyze and understand it's contents. It has been well received: experimental versions of data mined and cleaned by CCDC has powered several investigations into money in politics conducted by the [Los Angeles Times](https://www.latimes.com/politics/la-pol-ca-road-map-california-2018-campaign-spending-20170219-story.html?foo=bar)^[The team also earned the 2015 Knight News Challenge Award for their efforts.]. One of its co-founders, Cheryl Phillips, and one of its former lead developers, James Gordon, in collaboration with Ben Welsh of The Los Angeles Times and Andrea Suozzo of the Seven Days newspaper authored an introduction to Python course that provides data on the committees and contributions for the 2016 election and inspired this paper.
+
+# Data 
+
+## Summary
+
+The 2016 CalProps data is comprised of two dataframes (contributions and committees), which we combine to create a 90,264 x 18 contribution level dataframe. Each observation contains the amount of the contribution, the committee the contribution is associated with, the proposition that the committee is associated with, and stances assumed by the committee on said proposition, and some basic information about the contributor, including their name, occupation and state or residence. 
+
+```{r echo=FALSE}
+sapply(X, class, USE.NAMES = T) %>% knitr::kable(col.names = "datatype", caption = "Structure of merged contributions and committees data.")
 ```
 
-```{r echo=FALSE, message=TRUE}
+## Propositions
+
+
+## Odd Observations : Negative Support
+
+It was presumed that negative values of "amount" corresponded to opposing a proposition but upon closer inspection at the subset below, we observe that there are contributions of sizable amounts for which the committee position is SUPPORT, yet it's amount is negative.
+
+```{r echo=FALSE}
+knitr::kable(head(X[X$amount<0 & abs(X$amount)>1000 & !is.na(X$amount),c("amount","committee_position")]), caption = "Sample of irreconcilable observations.")
+```
+
+We may expect the amount of contributions that have this paradoxical attribute to be distributed uniformly across all propositions. The barplot in Figure 1 shows that this is not the case: that the frequency of these types of records are much higher among contributions to Proposition 63: "Background Checks for Ammunition Purchases and Large-Capacity Ammunition Magazine Ban Initiative."
+
+This proposition, when passed, banned the possession of magazines of capacity of more than ten rounds, and require background checks for the purchase of ammunition.
+
+```{r echo=FALSE, message=TRUE, fig.margin=T, fig.cap= "Frequency of Corrupted Records by Proposition", fig.height=5}
 odd_obs <- X[X$amount < 0 & X$committee_position=="SUPPORT",]
 odd_obs %>%
   group_by("G"=odd_obs$prop_name) %>%
   summarize("N"=n()) %>%
   filter(!is.na(G)) %>%
   ggplot(aes(G,N)) +
-  geom_col(col="black", fill="burlywood2") +
+  geom_col(col="black", fill="cadetblue") +
   theme_light() +
   xlab(label="Propositions") +
-  ylab(label="") +
+  ylab(label="Count") +
   coord_flip() +
-  ggtitle(label = "A Glitch in the System",
-          subtitle = "Frequency of Negative Supporting Contributions by Proposition") +
   scale_x_discrete(labels=c("Prop 51",
                             "Prop 59",
                             "Prop 61",
@@ -96,19 +127,120 @@ odd_obs %>%
                             "Prop 66"))
 ```
 
+We deal with these ambiguous observations by applying an absolute value transformation to the amount. 
 
-```{r echo=FALSE}
+## Missing Data
+
+This dataset would be completely dense if not for 16 missing observations in amount coming from contributions on exactly two propositions, namely, Prop 67, The Plastic Bag Referendum, and, once again, Prop 63. It is not clear why proposition 63 is over-represented in corrupted data but it is clear that these corrupted and missing observations within Prop 63 come from a singular source: [The Coalition for Civil Liberties](https://ballotpedia.org/Coalition_for_Civil_Liberties), a project of the California Rifle and Pistol Association. These observations are dropped in subsequent aggregations.
+
+```{r echo=FALSE, message=TRUE, fig.margin=T, fig.cap= "Frequency of Missing Data grouped by Proposition", fig.height=5}
 X3 %>% 
   group_by(number) %>%
   summarize("N"=n()) %>%
   ggplot(aes(number, N)) +
-  geom_col(fill="burlywood2", col="black") +
+  geom_col(fill="cadetblue", col="black") +
   scale_x_discrete(
     name="Proposition",
     labels=c("Prop 63 - Gun Control",
              "Prop 67 - Plastic Bag Referendum")) +
-  labs(
-    title="Undisclosed Firearms donation amounts",
-    subtitle = "Frequency of Missing Data grouped by Proposition") +
+  #labs(title="Corrupted Data: Proposition 63", subtitle = "Frequency of #Missing Data grouped by Proposition") +
   theme_light()
 ```
+
+
+# Aggregations
+
+An aggregate of ~$4.7M was donated across all propositions with an average amount donated per proposition of $5,177.06, and an average number of contributions per proposition of 5309.64. Mixing these two ratios, we observe that the average dollar to contributor ratio is .97, approximately a dollar per contributor.
+
+In examining aggregations on contributions across proposition in Figure 3, we observe that number of contributions for Prop 62 and 66 are much higher than the other at over 30,000. Prop 63 and 67 have around 11000 and 6000 contributors respectively, and the number of contributors for the remainder of propositions were negligible in comparison. 
+
+```{r echo=FALSE, echo=FALSE, message=TRUE, fig.cap= "Unique Contributors by Proposition", fig.width=5}
+X2 %>%
+group_by(number) %>%
+ggplot(aes(x=forcats::fct_infreq(factor(sort(number))))) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+theme_light() +
+scale_x_discrete(name="Proposition") +
+scale_y_continuous(name="Number of Contributors") +
+#labs(title = "Popular Demand", subtitle = "Prop 63 and Prop 67") +
+geom_bar(fill="cadetblue", col="black") 
+```
+
+In Figure 4 we aggregate dollars contributed across propositions and find that propositions 55, 56 and 61. 
+
+```{r echo=FALSE, message=TRUE, fig.cap= "Total Funding Per Proposition", fig.width=5}
+X2 %>%
+filter(!is.na(amount)) %>%
+group_by(number) %>%
+summarize(raised=sum(amount)) %>%
+ggplot(aes(x=factor(number), y=raised)) +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+theme_light() +
+scale_x_discrete(name="Proposition") +
+scale_y_continuous(name="Total Funding (in millions)", breaks=c(seq(0,125000000, length.out = 11)),
+labels = paste("$",as.integer(c(seq(0,125, length.out = 11))),sep = "")) +
+#labs(title = "Popular Demand", subtitle = "Prop 63 and Prop 67") +
+geom_col(fill="cadetblue", col="black") 
+```
+
+The relationship between the number of contributors per proposition is further explored in the scatterplot and the violin-dot plot in figures 5 and 6. We observe that there are at least two distinct profiles for propositions: propositions like 55, 56, and 61 that are extremely well funded by albeit by a small handful of very large contributions, and propositions like 66 and 62 which do not have large sums, in terms of contributions, but garnered at least three times as many contributions as the other propositions. 
+
+# Bivariate Relationships
+
+```{r echo=F, message=TRUE, fig.cap= "Proposition Total Funding by Number of Contributions", fig.width=5}
+  X2 %>%
+  subset(!is.na(amount)) %>%
+  group_by(number) %>%
+  summarize("total"=sum(amount), "N"=n()) %>%
+  ggplot(aes(N, total)) +
+  xlim(c(-1500,40000)) +
+  theme_light() +
+  geom_point(col="cadetblue",lwd=1.5) +
+  ylab(label = "Total Funding") +
+  xlab(label = "Number of Contributions") +
+  scale_y_continuous(breaks = c(0, 5e+07, 1e+08), labels = c("$0","$5M","$10M")) +
+  geom_text(aes(label=ifelse(total>5e+07 | (N<34000 & N>30000),as.character(number),'')),color="red",hjust=1.1, vjust=1.3) +
+  geom_text(aes(label=ifelse(N>34000,as.character(number),'')),color="red", hjust=-.3, vjust=1) 
+```
+!["Violin-Dot Plot of contributions by Propositions by Stance"](IMG_6338.png.pdf "Title") 
+
+A closer look at figure 6 gives us an some insight into the distributions of the contribution amounts for each proposition. Well funded propositions like 56 and 61 were hotly contested by large contributions in support of and in opposition to their respective propositions, while propositions like 60 and 61 seem to have garnered a sizable amount of small contributions.^[Welsh et al. warns in their tutorial that contributions less than $100 are absent from this dataset, citing the fact these contributions are not required to be reported. Nevertheless many small contributions appear, contradicting this. What proportion of the total amount of contributions in these amounts appear here are unclear.] 
+
+# Models
+
+## Welch's Two Sample T-Test
+
+
+A two sample t-test was conducted to investigate the difference in the sums contributed to propositions that were passed and propositions that failed. The t-test was not significant $t=.6158$, $df=4.93$, $p=.5652$, thus we fail to reject the null hypothesis that the difference in total contributions to losing and failing propositions is not statistically different from zero.
+
+## Logistic Regression
+
+A binary logistic regression was conducted to investigate if funds raised for a proposition or if popular support for a proposition predicts if a proposition will be passed. The outcome of interest was the success or failure of the proposition. Funds raised for the proposition was measure by the average per proposition contribution size, and popular support was measured by the proportion of contributors supported the proposition. 
+
+The Hosmer-Lemeshow goodness of fit test was not significant $(p>0.5)$ indicating that the model is correctly specified. The model resulted that the mean contribution size was not significant ($p=.6118$), however, the proportion of supports among contributors was found to be significant at the $\alpha = .1$ level. The full model had a $\chi^2=5.41$, $p=0.07$ and a Cragg-Ulher Pseudo-$R^2$ of $.39$. Thus, after controlling for the average size of the contribution for a proposition, the proportion of supporters was found to contribute to the model. The un-standardized coefficient, $\beta=3.607$ 90% CI = ${.49, 6.72}$, $SE = 2.992*10^-6$, $p=.0569$ corresponding to a approximate predicted $15%$ probability for a proposition being passed with no contributors in support of it and an approximate $.5%$ increase in the probability that a proposition will be passed for every $1%$ increase in the proportion of supporting contributors to a contribution.
+
+
+
+```{r include=FALSE}
+glm(data = X8, formula = outcomes ~ tmp$mean + prop.contribs.support, family = "binomial") -> model3
+ResourceSelection::hoslem.test(x= model3$y, y = fitted(model3),g = 10)
+summary(model3)
+```
+
+```{r include=FALSE}
+summary(glm(data=X4, outcomes ~ prop.contribs.support, family = "binomial"))
+```
+
+```{r include=F}
+confint(glm(data=X4, outcomes ~ prop.contribs.support, family = "binomial"))
+```
+
+```{r fig.height=10, fig.width=10, warning=F, echo=F, message=TRUE, fig.cap= "Logit model of Log-odds of Proposition Passing by proportion of pontributors that support.", fig.width=5}
+popbio::logi.hist.plot(X4$prop.contribs.support,X4$outcomes,boxp=T,type="hist",col="cadetblue",rug = T)
+```
+
+# Conclusion
+
+From the results of a welch's two sample t-test we concluded that there was insufficient evidence to conclude that the total amount contributed to a proposition is different between the groups of propositions that failed, or succeeded. In analyzing the outcomes of the 2016 California propositional ballot elections, we observe that the proportion of contributors that were supporters of a proposition is associated with an increase in the probability of the proposition being passed. While the p-value this coefficient, is significant at the $\alpha=.1$, indicating that the proportion of contributors that support a proposition descriptive value, the confidence intervals are too wide to justify using this model predicatively. This limitation is no doubt due to the small sample size, but these results serve as impetus for subsequent research in how proportions of financial contributors to a proposition may effect the probability that a proposition will succeed, irrespective of what the size or amount of those contributions are. 
+
+
