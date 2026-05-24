@@ -1,0 +1,143 @@
+version: '3.9'
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: notifeed-postgres
+    environment:
+      POSTGRES_DB: notifeed
+      POSTGRES_USER: notifeed_user
+      POSTGRES_PASSWORD: notifeed_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifeed_user -d notifeed"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: notifeed-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── API Server ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: notifeed-api
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      WS_SERVER_ID: ws-server-1
+      PORT: 3000
+      WS_PORT: 3001
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    command: npm run dev
+
+  # ─── Fan-out Worker ────────────────────────────────────────────────────────
+  fanout-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: notifeed-fanout-worker
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: npm run worker:fanout
+
+  # ─── Notification Worker ───────────────────────────────────────────────────
+  notification-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: notifeed-notification-worker
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: npm run worker:notification
+
+  # ─── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: notifeed-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  # ─── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: notifeed-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: notifeed-network
