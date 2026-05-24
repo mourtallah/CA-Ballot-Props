@@ -1,4 +1,7 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
+node_modules/
+dist/
+.env
+*.log
+coverage/
+.nyc_output/
+*.local
