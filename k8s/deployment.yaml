@@ -1,0 +1,132 @@
+# Kubernetes manifests for production deployment
+# Apply: kubectl apply -f k8s/
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifeed-api
+  labels:
+    app: notifeed-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: notifeed-api
+  template:
+    metadata:
+      labels:
+        app: notifeed-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3000"
+    spec:
+      containers:
+        - name: api
+          image: notifeed-api:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: notifeed-secrets
+                  key: db-host
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: notifeed-secrets
+                  key: redis-host
+            - name: WS_SERVER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name  # Pod name as server ID
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifeed-api
+spec:
+  selector:
+    app: notifeed-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifeed-fanout-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notifeed-fanout-worker
+  template:
+    metadata:
+      labels:
+        app: notifeed-fanout-worker
+    spec:
+      containers:
+        - name: fanout-worker
+          image: notifeed-api:latest
+          command: ["npm", "run", "worker:fanout"]
+          env:
+            - name: NODE_ENV
+              value: production
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: notifeed-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: notifeed-api
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
